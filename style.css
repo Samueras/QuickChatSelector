@@ -62,6 +62,10 @@
 }
 
 /* --- Feature A: chat section in the character editor drawer --- */
+#qcs_drawer_section {
+    padding-bottom: 10px;
+}
+
 #qcs_drawer_section .inline-drawer-content {
     padding: 5px 0;
 }

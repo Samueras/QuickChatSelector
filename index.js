@@ -118,6 +118,9 @@
             const group = ctx.groups?.find((g) => g.id === groupId);
             return groupId ? { type: 'group', groupId, name: group?.name ?? 'Group' } : null;
         }
+        if (!card.classList.contains('character_select')) {
+            return null;
+        }
         const chid = Number(card.getAttribute('data-chid'));
         const character = Number.isFinite(chid) ? ctx.characters?.[chid] : null;
         return character ? { type: 'character', chid, avatar: character.avatar, name: character.name } : null;
@@ -499,8 +502,7 @@
         return card?.querySelector('.ch_fav_icon, .group_fav_icon');
     }
 
-    async function showChatCtxMenu(card, x, y) {
-        const entity = entityFromCard(card);
+    async function showChatCtxMenu(entity, x, y) {
         if (!entity) {
             return;
         }
@@ -565,10 +567,14 @@
     }
 
     function bindStarPicker() {
+        // Card-list favorite star (target = the star itself)
         const starSelector = '#rm_print_characters_block .ch_fav_icon, #rm_print_characters_block .group_fav_icon';
+        // Favorite avatars in the hotswap strip on top of the character management
+        // drawer (target = the avatar; core makes these .character_select/.group_select)
+        const hotswapSelector = '#right-nav-panel .hotswap .avatar[data-type="character"], #right-nav-panel .hotswap .avatar[data-type="group"]';
         const cardOf = (el) => el.closest('.character_select, .group_select');
 
-        $(document).on('contextmenu', starSelector, function (e) {
+        $(document).on('contextmenu', `${starSelector}, ${hotswapSelector}`, function (e) {
             if (!settings.starPicker) {
                 return;
             }
@@ -579,29 +585,35 @@
                 return;
             }
             clearTimeout(longPressTimer);
-            showChatCtxMenu(cardOf(this), e.clientX, e.clientY);
+            const card = this.classList.contains('ch_fav_icon') || this.classList.contains('group_fav_icon')
+                ? cardOf(this)
+                : this;
+            showChatCtxMenu(entityFromCard(card), e.clientX, e.clientY);
         });
 
-        $(document).on('pointerdown', starSelector, function (e) {
+        $(document).on('pointerdown', `${starSelector}, ${hotswapSelector}`, function (e) {
             if (!settings.starPicker || e.button !== 0) {
                 return;
             }
-            const star = this;
+            const target = this;
+            const card = target.classList.contains('ch_fav_icon') || target.classList.contains('group_fav_icon')
+                ? cardOf(target)
+                : target;
             const { clientX, clientY } = e;
             longPressFired = false;
             clearTimeout(longPressTimer);
             longPressTimer = setTimeout(() => {
                 longPressFired = true;
-                showChatCtxMenu(cardOf(star), clientX, clientY);
+                showChatCtxMenu(entityFromCard(card), clientX, clientY);
             }, LONG_PRESS_MS);
         });
 
-        $(document).on('pointerup pointermove pointercancel', starSelector, () => {
+        $(document).on('pointerup pointermove pointercancel', `${starSelector}, ${hotswapSelector}`, () => {
             clearTimeout(longPressTimer);
         });
 
         // Swallow the click that follows a long-press so the card doesn't open
-        $(document).on('click', starSelector, function (e) {
+        $(document).on('click', `${starSelector}, ${hotswapSelector}`, function (e) {
             if (longPressFired) {
                 longPressFired = false;
                 e.preventDefault();
