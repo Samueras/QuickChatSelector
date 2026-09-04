@@ -499,18 +499,32 @@
             .trim();
     }
 
-    /** One LLM call -> proposed file name for a chat, or null when there is nothing to summarize. */
+    /**
+     * One LLM call -> proposed file name for a chat, or null when there is nothing to summarize.
+     * Uses generateRaw so only the naming prompt is sent — no chat history, no world info.
+     * Reasoning models occasionally return an empty message; retry once before giving up.
+     */
     async function proposeChatName(entity, fileName) {
         const messages = await fetchChatHead(entity, fileName);
         if (messages.length === 0) {
             return null;
         }
-        const result = await ctx.generateQuietPrompt({
-            quietPrompt: buildRenamePrompt(entity, messages),
-            responseLength: 60,
-            removeReasoning: true,
-        });
-        const name = sanitizeChatName(result);
+        const prompt = buildRenamePrompt(entity, messages);
+        let name = '';
+        for (let attempt = 0; attempt < 2 && !name; attempt++) {
+            try {
+                const result = await ctx.generateRaw({
+                    prompt,
+                    systemPrompt: 'You name chat log files. Follow the rules exactly and reply with only the file name.',
+                });
+                name = sanitizeChatName(result);
+            } catch (err) {
+                if (attempt > 0) {
+                    throw err;
+                }
+                console.debug(`[${MODULE_NAME}] Rename generation retry for "${fileName}":`, err);
+            }
+        }
         if (!name) {
             throw new Error('LLM returned an empty name');
         }
