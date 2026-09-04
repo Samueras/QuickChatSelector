@@ -452,7 +452,7 @@
     function removeAllCardLines() {
         cardObserver.disconnect();
         $('.qcs_chat_line').remove();
-        $('.qcs_has_line').removeClass('qcs_has_line').removeData('qcsKey');
+        $('.qcs_has_line').removeClass('qcs_has_line').removeAttr('data-qcs-key');
     }
 
     function refreshLinesForKey(key) {
@@ -484,6 +484,11 @@
             }
             e.preventDefault();
             e.stopPropagation();
+            if (longPressFired) {
+                // Long-press timer already opened the picker (Android fires both)
+                return;
+            }
+            clearTimeout(longPressTimer);
             openChatPicker(this.closest('.character_select, .group_select'));
         });
 
