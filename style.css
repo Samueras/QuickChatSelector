@@ -19,6 +19,19 @@
     min-height: 0;
 }
 
+.qcs_chat_line::-webkit-scrollbar {
+    height: 4px;
+}
+
+.qcs_chat_line::-webkit-scrollbar-thumb {
+    background: var(--SmartThemeBorderColor, #777);
+    border-radius: 2px;
+}
+
+.qcs_chat_line::-webkit-scrollbar-track {
+    background: transparent;
+}
+
 .qcs_chat_line:empty {
     display: none;
 }
