@@ -101,6 +101,7 @@
 
 .qcs_chat_row_name {
     flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -110,6 +111,7 @@
     font-size: 0.85em;
     opacity: 0.7;
     white-space: nowrap;
+    flex: 0 0 auto;
 }
 
 .qcs_chat_hint {
@@ -234,6 +236,7 @@
     border-radius: 5px;
     cursor: pointer;
     font-size: calc(var(--mainFontSize, 14px) * 0.9);
+    min-width: 0;
 }
 
 .qcs-ctx-item:hover {
@@ -245,6 +248,7 @@
 }
 
 .qcs-ctx-name {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
