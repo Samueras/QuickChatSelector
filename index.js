@@ -36,6 +36,16 @@
     let ctx = null;
     let settings = null;
 
+    /**
+     * The context object copies primitive values (characterId, groupId, chatId, ...)
+     * at call time, so a cached reference goes stale. Always read primitives from a
+     * fresh getContext(); only stable references (eventSource, functions, the
+     * characters/groups arrays) may come from the cached ctx.
+     */
+    function getCtx() {
+        return window.SillyTavern?.getContext?.() ?? ctx;
+    }
+
     /** @type {Map<string, { ts: number, promise: Promise<object[]> }>} */
     const chatCache = new Map();
     let activeFetches = 0;
@@ -114,14 +124,15 @@
     }
 
     function currentOwnerKey() {
-        if (!ctx) {
+        const c = getCtx();
+        if (!c) {
             return null;
         }
-        if (ctx.groupId) {
-            return `group:${ctx.groupId}`;
+        if (c.groupId) {
+            return `group:${c.groupId}`;
         }
-        const chid = Number(ctx.characterId);
-        const character = Number.isFinite(chid) ? ctx.characters?.[chid] : null;
+        const chid = Number(c.characterId);
+        const character = Number.isFinite(chid) ? c.characters?.[chid] : null;
         return character ? `char:${character.avatar}` : null;
     }
 
@@ -200,13 +211,14 @@
     }
 
     function isActiveChat(entity, fileName) {
-        if (!ctx?.getCurrentChatId) {
+        const c = getCtx();
+        if (!c?.getCurrentChatId) {
             return false;
         }
         if (entity.type === 'group') {
-            return ctx.groupId === entity.groupId && ctx.getCurrentChatId() === fileName;
+            return c.groupId === entity.groupId && c.getCurrentChatId() === fileName;
         }
-        return !ctx.groupId && Number(ctx.characterId) === entity.chid && ctx.getCurrentChatId() === fileName;
+        return !c.groupId && Number(c.characterId) === entity.chid && c.getCurrentChatId() === fileName;
     }
 
     // ------------------------------------------------------------------
@@ -262,10 +274,12 @@
             if (entity.type === 'group') {
                 await ctx.openGroupChat(entity.groupId, fileName);
             } else {
-                const alreadyActive = !ctx.groupId && Number(ctx.characterId) === entity.chid;
+                const c = getCtx();
+                const alreadyActive = !c.groupId && Number(c.characterId) === entity.chid;
                 if (!alreadyActive) {
                     await ctx.selectCharacterById(entity.chid, { switchMenu: false });
-                    if (Number(ctx.characterId) !== entity.chid || ctx.groupId) {
+                    const after = getCtx();
+                    if (Number(after.characterId) !== entity.chid || after.groupId) {
                         window.toastr?.info('Please wait until the current chat is saved, then try again.', MODULE_NAME);
                         return;
                     }
@@ -321,8 +335,9 @@
         if ($('#form_create').attr('actiontype') !== 'editcharacter') {
             return null;
         }
-        const chid = Number(ctx.characterId);
-        const character = Number.isFinite(chid) ? ctx.characters?.[chid] : null;
+        const c = getCtx();
+        const chid = Number(c.characterId);
+        const character = Number.isFinite(chid) ? c.characters?.[chid] : null;
         return character ? { type: 'character', chid, avatar: character.avatar, name: character.name } : null;
     }
 
@@ -469,60 +484,22 @@
     }
 
     // ------------------------------------------------------------------
-    // Feature C: chat picker from the favorite star
+    // Feature C: chat picker from the favorite star (custom context menu,
+    // same pattern as the Quick Reply extension's ContextMenu)
     // ------------------------------------------------------------------
 
     let longPressTimer = null;
     let longPressFired = false;
 
-    function bindStarPicker() {
-        const starSelector = '#rm_print_characters_block .ch_fav_icon, #rm_print_characters_block .group_fav_icon';
-
-        $(document).on('contextmenu', starSelector, function (e) {
-            if (!settings.starPicker) {
-                return;
-            }
-            e.preventDefault();
-            e.stopPropagation();
-            if (longPressFired) {
-                // Long-press timer already opened the picker (Android fires both)
-                return;
-            }
-            clearTimeout(longPressTimer);
-            openChatPicker(this.closest('.character_select, .group_select'));
-        });
-
-        $(document).on('pointerdown', starSelector, function (e) {
-            if (!settings.starPicker || e.button !== 0) {
-                return;
-            }
-            const star = this;
-            longPressFired = false;
-            clearTimeout(longPressTimer);
-            longPressTimer = setTimeout(() => {
-                longPressFired = true;
-                openChatPicker(star.closest('.character_select, .group_select'));
-            }, LONG_PRESS_MS);
-        });
-
-        $(document).on('pointerup pointermove pointercancel', starSelector, () => {
-            clearTimeout(longPressTimer);
-        });
-
-        // Swallow the click that follows a long-press so the card doesn't open
-        $(document).on('click', starSelector, function (e) {
-            if (longPressFired) {
-                longPressFired = false;
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
+    function closeChatCtxMenu() {
+        document.getElementById('qcs-ctx-blocker')?.remove();
     }
 
-    async function openChatPicker(card) {
-        if (!card) {
-            return;
-        }
+    function starFor(card) {
+        return card?.querySelector('.ch_fav_icon, .group_fav_icon');
+    }
+
+    async function showChatCtxMenu(card, x, y) {
         const entity = entityFromCard(card);
         if (!entity) {
             return;
@@ -540,40 +517,97 @@
             return;
         }
 
-        const container = document.createElement('div');
-        container.className = 'qcs_picker';
-        const title = document.createElement('div');
-        title.className = 'qcs_picker_title';
-        title.textContent = entity.name;
-        const list = document.createElement('div');
-        list.className = 'qcs_chat_list';
-        container.append(title, list);
+        closeChatCtxMenu();
+        const blocker = document.createElement('div');
+        blocker.id = 'qcs-ctx-blocker';
+        const menu = document.createElement('ul');
+        menu.className = 'list-group qcs-ctx-menu';
 
-        const popup = new ctx.Popup(container, ctx.POPUP_TYPE.TEXT, {
-            okButton: false,
-            allowVerticalScrolling: true,
-        });
+        const header = document.createElement('li');
+        header.className = 'qcs-ctx-header';
+        header.textContent = entity.name;
+        menu.appendChild(header);
 
         for (const chat of chats) {
-            const active = isActiveChat(entity, chat.file_name);
-            const row = document.createElement('div');
-            row.className = `qcs_chat_row${active ? ' qcs_active' : ''}`;
-            row.title = chatTooltip(chat, entity);
+            const li = document.createElement('li');
+            li.className = `list-group-item qcs-ctx-item${isActiveChat(entity, chat.file_name) ? ' qcs_active_chat' : ''}`;
+            li.title = chatTooltip(chat, entity);
             const name = document.createElement('span');
-            name.className = 'qcs_chat_row_name';
+            name.className = 'qcs-ctx-name';
             name.textContent = chatTitle(chat, entity);
             const meta = document.createElement('span');
-            meta.className = 'qcs_chat_row_meta';
-            meta.textContent = `${formatDate(chat.last_mes)} · ${chat.message_count ?? 0}`;
-            row.append(name, meta);
-            row.addEventListener('click', async () => {
-                await popup.complete(ctx.POPUP_RESULT.AFFIRMATIVE);
+            meta.className = 'qcs-ctx-meta';
+            meta.textContent = formatDate(chat.last_mes);
+            li.append(name, meta);
+            li.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeChatCtxMenu();
                 openChat(entity, chat.file_name);
             });
-            list.appendChild(row);
+            menu.appendChild(li);
         }
 
-        await popup.show();
+        // Close when clicking (or right-clicking) anywhere outside the menu
+        blocker.addEventListener('click', closeChatCtxMenu);
+        blocker.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            closeChatCtxMenu();
+        });
+
+        blocker.appendChild(menu);
+        document.body.appendChild(blocker);
+
+        // Anchor the menu at the cursor, clamped to the viewport
+        const maxX = window.innerWidth - menu.offsetWidth - 8;
+        const maxY = window.innerHeight - menu.offsetHeight - 8;
+        menu.style.left = `${Math.max(8, Math.min(x, maxX))}px`;
+        menu.style.top = `${Math.max(8, Math.min(y, maxY))}px`;
+    }
+
+    function bindStarPicker() {
+        const starSelector = '#rm_print_characters_block .ch_fav_icon, #rm_print_characters_block .group_fav_icon';
+        const cardOf = (el) => el.closest('.character_select, .group_select');
+
+        $(document).on('contextmenu', starSelector, function (e) {
+            if (!settings.starPicker) {
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            if (longPressFired) {
+                // Long-press timer already opened the picker (Android fires both)
+                return;
+            }
+            clearTimeout(longPressTimer);
+            showChatCtxMenu(cardOf(this), e.clientX, e.clientY);
+        });
+
+        $(document).on('pointerdown', starSelector, function (e) {
+            if (!settings.starPicker || e.button !== 0) {
+                return;
+            }
+            const star = this;
+            const { clientX, clientY } = e;
+            longPressFired = false;
+            clearTimeout(longPressTimer);
+            longPressTimer = setTimeout(() => {
+                longPressFired = true;
+                showChatCtxMenu(cardOf(star), clientX, clientY);
+            }, LONG_PRESS_MS);
+        });
+
+        $(document).on('pointerup pointermove pointercancel', starSelector, () => {
+            clearTimeout(longPressTimer);
+        });
+
+        // Swallow the click that follows a long-press so the card doesn't open
+        $(document).on('click', starSelector, function (e) {
+            if (longPressFired) {
+                longPressFired = false;
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
     }
 
     // ------------------------------------------------------------------

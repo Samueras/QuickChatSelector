@@ -106,46 +106,113 @@
     font-size: 0.85em;
 }
 
-/* --- Feature C: favorite star as chat-picker handle --- */
+/* --- Feature C: favorite star as chat-picker handle ---
+   Core hides the star with an inline display:none and offsets it with huge
+   negative margins. Re-position it as a stable, always-visible handle in the
+   card's top-right corner so right-click / long-press has a reliable target. */
+#rm_print_characters_block .character_select,
+#rm_print_characters_block .group_select {
+    position: relative;
+}
+
 #rm_print_characters_block .character_select .ch_fav_icon,
 #rm_print_characters_block .group_select .group_fav_icon {
     display: block !important;
-    visibility: hidden;
-    opacity: 0;
-    transition: opacity 0.2s ease-in-out;
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    margin: 0;
+    padding: 6px;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--golden, #f5c026);
+    opacity: 0.3;
+    visibility: visible;
+    transition: opacity 0.15s ease-in-out;
     cursor: context-menu;
-    z-index: 1;
+    z-index: 2;
 }
 
 #rm_print_characters_block .character_select:hover .ch_fav_icon,
 #rm_print_characters_block .group_select:hover .group_fav_icon {
-    visibility: visible;
-    opacity: 0.5;
+    opacity: 0.75;
 }
 
 #rm_print_characters_block .character_select.is_fav .ch_fav_icon,
 #rm_print_characters_block .group_select.is_fav .group_fav_icon {
-    visibility: visible;
     opacity: 1;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
 }
 
-/* --- Chat picker popup --- */
-.qcs_picker {
+/* --- Cursor-anchored chat picker menu (QR-style ctx menu) --- */
+#qcs-ctx-blocker {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 99999;
+}
+
+.qcs-ctx-menu {
+    position: fixed;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    min-width: 280px;
-    max-width: 500px;
+    max-height: min(400px, 60vh);
+    overflow-y: auto;
+    min-width: 220px;
+    max-width: 380px;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    z-index: 100000;
+    background: var(--SmartThemeBlurTintColor, #1a1a1a);
+    border: 1px solid var(--SmartThemeBorderColor, #777);
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
-.qcs_picker_title {
+.qcs-ctx-header {
     font-weight: bold;
+    padding: 4px 8px;
     border-bottom: 1px solid var(--SmartThemeBorderColor, #777);
-    padding-bottom: 4px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.qcs_picker .qcs_chat_list {
-    max-height: 320px;
+.qcs-ctx-item {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 5px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: calc(var(--mainFontSize, 14px) * 0.9);
+}
+
+.qcs-ctx-item:hover {
+    filter: brightness(1.3);
+}
+
+.qcs-ctx-item.qcs_active_chat {
+    color: var(--golden, #f5c026);
+}
+
+.qcs-ctx-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.qcs-ctx-meta {
+    font-size: 0.8em;
+    opacity: 0.7;
+    white-space: nowrap;
+    flex: 0 0 auto;
 }
 
 /* --- Settings --- */
