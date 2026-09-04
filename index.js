@@ -25,8 +25,8 @@
     const CHIP_MIN = 1;
     const CHIP_MAX = 10;
     const RENAME_MARKER_KEY = 'qcs_renamed_chats';
-    const AI_RENAME_HEAD_MESSAGES = 5;
-    const AI_RENAME_MAX_LENGTH = 60;
+    const AI_RENAME_HEAD_MESSAGES = 10;
+    const AI_RENAME_MAX_LENGTH = 90;
 
     const DEFAULT_SETTINGS = {
         drawerSection: true,
@@ -477,9 +477,9 @@
             '- Reply with ONLY the new file name. No quotes, no explanation, no trailing punctuation.',
             '- Format: Name - Description (name, space, hyphen, space, short description).',
             '- Name: the first name of the main FEMALE character if one appears in the messages; otherwise the first name of the main non-user character; otherwise the user persona name.',
-            '- Description: what the chat is about (scenario, setting, relationship or theme) in at most 7 words. The shorter the better.',
+            '- Description: what the chat is about (scenario, setting, relationship or theme) in at most 12 words. The shorter the better.',
             '- The name may be cut off at the end, so put the most identifying words first: name first, then the strongest keywords. Never end with filler.',
-            '- Total length under 50 characters.',
+            '- Total length under 80 characters.',
             '',
             'Chat messages:',
             transcript,
@@ -562,7 +562,7 @@
 
         const result = await ctx.Popup.show.confirm(
             `Rename ${targets.length} chat${targets.length === 1 ? '' : 's'} with AI?`,
-            'The first 5 messages of each unmarked chat are sent to the LLM to generate a short name (one call per chat). Original file names will be replaced. Renamed chats are marked and skipped next time.',
+            'The first 10 messages of each unmarked chat are sent to the LLM to generate a short name (one call per chat). Original file names will be replaced. Renamed chats are marked and skipped next time.',
         );
         if (result !== ctx.POPUP_RESULT.AFFIRMATIVE) {
             return;
