@@ -1,0 +1,154 @@
+/* ============ Quick Chat Selector ============ */
+
+/* --- Feature B: single-line chat selector under each card --- */
+.character_select.qcs_has_line {
+    flex-wrap: wrap;
+}
+
+.qcs_chat_line {
+    flex: 0 0 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    padding: 3px 5px 0 5px;
+    scrollbar-width: thin;
+    min-height: 0;
+}
+
+.qcs_chat_line:empty {
+    display: none;
+}
+
+.qcs_chip {
+    display: inline-block;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 1px 8px;
+    border: 1px solid var(--SmartThemeBorderColor, #777);
+    border-radius: 10px;
+    font-size: calc(var(--mainFontSize, 14px) * 0.8);
+    line-height: 1.5;
+    cursor: pointer;
+    user-select: none;
+    flex: 0 0 auto;
+}
+
+.qcs_chip:hover {
+    border-color: var(--SmartThemeBodyColor, #fff);
+}
+
+.qcs_chip.qcs_active {
+    color: var(--golden, #f5c026);
+    border-color: var(--golden, #f5c026);
+}
+
+/* --- Feature A: chat section in the character editor drawer --- */
+#qcs_drawer_section .inline-drawer-content {
+    padding: 5px 0;
+}
+
+.qcs_chat_list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 260px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.qcs_chat_row {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: baseline;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: calc(var(--mainFontSize, 14px) * 0.9);
+}
+
+.qcs_chat_row:hover {
+    background: var(--SmartThemeBlurTintColor, rgba(0, 0, 0, 0.3));
+}
+
+.qcs_chat_row.qcs_active {
+    border-color: var(--golden, #f5c026);
+}
+
+.qcs_chat_row_name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.qcs_chat_row_meta {
+    font-size: 0.85em;
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+.qcs_chat_hint {
+    opacity: 0.6;
+    font-size: calc(var(--mainFontSize, 14px) * 0.85);
+    padding: 4px 6px;
+}
+
+#qcs_drawer_count {
+    opacity: 0.7;
+    font-size: 0.85em;
+}
+
+/* --- Feature C: favorite star as chat-picker handle --- */
+#rm_print_characters_block .character_select .ch_fav_icon,
+#rm_print_characters_block .group_select .group_fav_icon {
+    display: block !important;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    cursor: context-menu;
+    z-index: 1;
+}
+
+#rm_print_characters_block .character_select:hover .ch_fav_icon,
+#rm_print_characters_block .group_select:hover .group_fav_icon {
+    visibility: visible;
+    opacity: 0.5;
+}
+
+#rm_print_characters_block .character_select.is_fav .ch_fav_icon,
+#rm_print_characters_block .group_select.is_fav .group_fav_icon {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* --- Chat picker popup --- */
+.qcs_picker {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 280px;
+    max-width: 500px;
+}
+
+.qcs_picker_title {
+    font-weight: bold;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #777);
+    padding-bottom: 4px;
+}
+
+.qcs_picker .qcs_chat_list {
+    max-height: 320px;
+}
+
+/* --- Settings --- */
+#qcs_chip_count {
+    width: 70px;
+}

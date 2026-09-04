@@ -1,0 +1,31 @@
+<div class="quick-chat-selector-settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b data-i18n="Quick Chat Selector">Quick Chat Selector</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <div class="flex-container flexFlowColumn flexNoGap">
+                <label class="checkbox_label" for="qcs_enable_drawer" title="Shows a chat selector section in the character editor, after the tags and before the Creator's Notes.">
+                    <input id="qcs_enable_drawer" type="checkbox" />
+                    <span data-i18n="Show chat selector in character editor">Show chat selector in character editor</span>
+                </label>
+                <label class="checkbox_label" for="qcs_enable_card_line" title="Shows the most recent chats as a single-line selector under each card in the character list.">
+                    <input id="qcs_enable_card_line" type="checkbox" />
+                    <span data-i18n="Show recent chats under cards in the list">Show recent chats under cards in the list</span>
+                </label>
+                <label class="checkbox_label" for="qcs_enable_star_picker" title="Right-click or long-press the favorite star on a card to open a chat picker popup.">
+                    <input id="qcs_enable_star_picker" type="checkbox" />
+                    <span data-i18n="Chat picker on favorite star (right-click / long-press)">Chat picker on favorite star (right-click / long-press)</span>
+                </label>
+                <label class="flex-container flexFlowColumn" for="qcs_chip_count">
+                    <span data-i18n="Chats shown per card">Chats shown per card</span>
+                    <input id="qcs_chip_count" class="text_pole textarea_compact" type="number" min="1" max="10" step="1" />
+                </label>
+                <small class="opacity70p" data-i18n="The card line updates whenever the character list is redrawn (search, paging, refresh).">
+                    The card line updates whenever the character list is redrawn (search, paging, refresh).
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
