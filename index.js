@@ -499,6 +499,10 @@
             .trim();
     }
 
+    /** Reasoning models occasionally refuse to summarize adult content; their
+     *  refusal text must never be used as a chat name. */
+    const REFUSAL_RE = /^\s*(i can'?t|i can not|i cannot|i'm sorry|i am sorry|sorry|i apologize|unfortunately|as an ai|i'm unable|i am unable|unable)\b/i;
+
     /**
      * One LLM call -> proposed file name for a chat, or null when there is nothing to summarize.
      * Uses generateRaw so only the naming prompt is sent — no chat history, no world info.
@@ -517,6 +521,9 @@
                     prompt,
                     systemPrompt: 'You name chat log files. Follow the rules exactly and reply with only the file name.',
                 });
+                if (REFUSAL_RE.test(result)) {
+                    throw new Error('LLM refused to name this chat');
+                }
                 name = sanitizeChatName(result);
             } catch (err) {
                 if (attempt > 0) {
