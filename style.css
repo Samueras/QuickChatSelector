@@ -118,6 +118,31 @@
     padding: 4px 6px;
 }
 
+#qcs_drawer_status {
+    display: none;
+}
+
+#qcs_drawer_status:not(:empty) {
+    display: block;
+}
+
+.qcs_chat_row_marker {
+    cursor: pointer;
+    font-size: 0.85em;
+    opacity: 0.25;
+    flex: 0 0 auto;
+    margin-left: 4px;
+}
+
+.qcs_chat_row_marker:hover {
+    opacity: 0.8;
+}
+
+.qcs_chat_row_marker.qcs_marked {
+    opacity: 0.8;
+    color: var(--golden, #f5c026);
+}
+
 #qcs_drawer_count {
     opacity: 0.7;
     font-size: 0.85em;

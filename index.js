@@ -24,6 +24,9 @@
     const LONG_PRESS_MS = 500;
     const CHIP_MIN = 1;
     const CHIP_MAX = 10;
+    const RENAME_MARKER_KEY = 'qcs_renamed_chats';
+    const AI_RENAME_HEAD_MESSAGES = 5;
+    const AI_RENAME_MAX_LENGTH = 60;
 
     const DEFAULT_SETTINGS = {
         drawerSection: true,
@@ -48,6 +51,8 @@
 
     /** @type {Map<string, { ts: number, promise: Promise<object[]> }>} */
     const chatCache = new Map();
+    /** old file name (no ext) -> actual new file name (no ext), from CHAT_RENAMED events */
+    const renameEvents = new Map();
     let activeFetches = 0;
     /** @type {(() => void)[]} */
     const fetchQueue = [];
@@ -311,6 +316,7 @@
                     <div class="title_restorable flexGap5 wide100p">
                         <span class="flex1" data-i18n="Chats">Chats</span>
                         <span id="qcs_drawer_count"></span>
+                        <div id="qcs_drawer_ai_rename" class="margin0 menu_button fa-solid fa-wand-magic-sparkles fa-fw interactable" title="Rename chats with AI" data-i18n="[title]Rename chats with AI"></div>
                         <div id="qcs_drawer_manage" class="margin0 menu_button fa-solid fa-folder-open fa-fw interactable" title="Manage chat files" data-i18n="[title]Manage chat files"></div>
                         <div id="qcs_drawer_refresh" class="margin0 menu_button fa-solid fa-rotate fa-fw interactable" title="Refresh chat list" data-i18n="[title]Refresh chat list"></div>
                     </div>
@@ -319,6 +325,7 @@
                     </div>
                 </div>
                 <div class="inline-drawer-content">
+                    <div id="qcs_drawer_status" class="qcs_chat_hint"></div>
                     <div id="qcs_drawer_chat_list" class="qcs_chat_list"></div>
                 </div>
             </div>
@@ -331,6 +338,10 @@
         $('#qcs_drawer_refresh').on('click', (e) => {
             e.stopPropagation();
             renderDrawerSection(true);
+        });
+        $('#qcs_drawer_ai_rename').on('click', (e) => {
+            e.stopPropagation();
+            aiRenameChats();
         });
     }
 
@@ -375,8 +386,10 @@
             $list.append($('<div class="qcs_chat_hint">No chats yet.</div>'));
             return;
         }
+        const renamedMap = getRenamedMap(entity.chid);
         for (const chat of chats) {
             const active = isActiveChat(entity, chat.file_name);
+            const marked = !!renamedMap[chat.file_name];
             const row = document.createElement('div');
             row.className = `qcs_chat_row${active ? ' qcs_active' : ''}`;
             row.title = chatTooltip(chat, entity);
@@ -386,9 +399,201 @@
             const meta = document.createElement('span');
             meta.className = 'qcs_chat_row_meta';
             meta.textContent = `${formatDate(chat.last_mes)} · ${chat.message_count ?? 0}`;
-            row.append(name, meta);
+            const marker = document.createElement('span');
+            marker.className = `qcs_chat_row_marker fa-solid fa-tag interactable${marked ? ' qcs_marked' : ''}`;
+            marker.title = marked
+                ? 'Already renamed with AI — click to include it in the next AI rename'
+                : 'Will be renamed by AI — click to mark it as already renamed';
+            marker.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleRenamedMarker(entity.chid, chat.file_name);
+            });
+            row.append(name, meta, marker);
             row.addEventListener('click', () => openChat(entity, chat.file_name));
             $list.append(row);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Feature D: AI chat renaming (character editor Chats section)
+    // ------------------------------------------------------------------
+
+    /**
+     * Marker map of chats already renamed by AI, persisted on the character
+     * card at data.extensions.qcs_renamed_chats -> { [fileName]: true }.
+     */
+    function getRenamedMap(chid) {
+        const map = ctx.characters?.[chid]?.data?.extensions?.[RENAME_MARKER_KEY];
+        return map && typeof map === 'object' && !Array.isArray(map) ? map : {};
+    }
+
+    async function saveRenamedMap(chid, map) {
+        await ctx.writeExtensionField(chid, RENAME_MARKER_KEY, map);
+    }
+
+    async function toggleRenamedMarker(chid, fileName) {
+        const map = getRenamedMap(chid);
+        if (map[fileName]) {
+            delete map[fileName];
+        } else {
+            map[fileName] = true;
+        }
+        await saveRenamedMap(chid, map);
+        renderDrawerSection();
+    }
+
+    function setDrawerStatus(text) {
+        $('#qcs_drawer_status').text(text ?? '');
+    }
+
+    /** Loads only the first few messages of a chat (header line is skipped). */
+    async function fetchChatHead(entity, fileName) {
+        const response = await fetch('/api/chats/get', {
+            method: 'POST',
+            headers: ctx.getRequestHeaders(),
+            body: JSON.stringify({ avatar_url: entity.avatar, file_name: fileName }),
+        });
+        if (!response.ok) {
+            throw new Error(`Chat load failed: ${response.status}`);
+        }
+        const lines = await response.json();
+        if (!Array.isArray(lines)) {
+            return [];
+        }
+        return lines.slice(1, 1 + AI_RENAME_HEAD_MESSAGES);
+    }
+
+    function buildRenamePrompt(entity, messages) {
+        const transcript = messages
+            .map((m) => {
+                const who = m.name || (m.is_user ? 'User' : entity.name);
+                const text = String(m.mes ?? '').replace(/\s+/g, ' ').trim().slice(0, 400);
+                return `${who}: ${text}`;
+            })
+            .join('\n');
+        return [
+            'You name chat log files. Below are the first messages of a roleplay chat. Output a new file name for it.',
+            'Rules:',
+            '- Reply with ONLY the new file name. No quotes, no explanation, no trailing punctuation.',
+            '- Format: Name - Description (name, space, hyphen, space, short description).',
+            '- Name: the first name of the main FEMALE character if one appears in the messages; otherwise the first name of the main non-user character; otherwise the user persona name.',
+            '- Description: what the chat is about (scenario, setting, relationship or theme) in at most 7 words. The shorter the better.',
+            '- The name may be cut off at the end, so put the most identifying words first: name first, then the strongest keywords. Never end with filler.',
+            '- Total length under 50 characters.',
+            '',
+            'Chat messages:',
+            transcript,
+        ].join('\n');
+    }
+
+    /** Strips everything the server-side file name sanitizer would strip. */
+    function sanitizeChatName(raw) {
+        return String(raw ?? '')
+            .replace(/[\u0000-\u001f\u007f]/g, '')
+            .replace(/[\\/:*?"<>|]/g, '')
+            .replace(/\s+/g, ' ')
+            .replace(/^["'\s]+|["'\s.]+$/g, '')
+            .trim()
+            .slice(0, AI_RENAME_MAX_LENGTH)
+            .replace(/[\s.]+$/, '')
+            .trim();
+    }
+
+    /** One LLM call -> proposed file name for a chat, or null when there is nothing to summarize. */
+    async function proposeChatName(entity, fileName) {
+        const messages = await fetchChatHead(entity, fileName);
+        if (messages.length === 0) {
+            return null;
+        }
+        const result = await ctx.generateQuietPrompt({
+            quietPrompt: buildRenamePrompt(entity, messages),
+            responseLength: 60,
+            removeReasoning: true,
+        });
+        const name = sanitizeChatName(result);
+        if (!name) {
+            throw new Error('LLM returned an empty name');
+        }
+        return name;
+    }
+
+    let aiRenaming = false;
+
+    async function aiRenameChats() {
+        const entity = drawerTargetEntity();
+        if (!entity || entity.type !== 'character' || aiRenaming) {
+            return;
+        }
+        let chats;
+        try {
+            chats = await getChats(entity);
+        } catch (err) {
+            console.error(`[${MODULE_NAME}] Failed to load chats for AI rename:`, err);
+            window.toastr?.error('Failed to load chats. See console for details.', MODULE_NAME);
+            return;
+        }
+        const renamedMap = getRenamedMap(entity.chid);
+        const targets = chats.filter((chat) => !renamedMap[chat.file_name] && (Number(chat.message_count) || 0) > 0);
+        if (targets.length === 0) {
+            window.toastr?.info('No chats pending an AI rename. Unmark a chat (tag icon) to rename it again.', MODULE_NAME);
+            return;
+        }
+
+        const result = await ctx.Popup.show.confirm(
+            `Rename ${targets.length} chat${targets.length === 1 ? '' : 's'} with AI?`,
+            'The first 5 messages of each unmarked chat are sent to the LLM to generate a short name (one call per chat). Original file names will be replaced. Renamed chats are marked and skipped next time.',
+        );
+        if (result !== ctx.POPUP_RESULT.AFFIRMATIVE) {
+            return;
+        }
+
+        aiRenaming = true;
+        const $button = $('#qcs_drawer_ai_rename').addClass('fa-spin');
+        let renamed = 0;
+        let failed = 0;
+        try {
+            for (const [index, chat] of targets.entries()) {
+                setDrawerStatus(`Renaming chats with AI: ${index + 1}/${targets.length}…`);
+                try {
+                    const proposed = await proposeChatName(entity, chat.file_name);
+                    if (!proposed) {
+                        continue; // empty chat, nothing to summarize; leave unmarked
+                    }
+                    let newName;
+                    if (proposed.toLowerCase() === chat.file_name.toLowerCase()) {
+                        newName = chat.file_name; // LLM kept the name; just mark it done
+                    } else {
+                        renameEvents.clear();
+                        await ctx.renameChat(chat.file_name, proposed);
+                        newName = renameEvents.get(chat.file_name);
+                    }
+                    if (!newName) {
+                        throw new Error('Rename failed');
+                    }
+                    delete renamedMap[chat.file_name];
+                    renamedMap[newName] = true;
+                    await saveRenamedMap(entity.chid, renamedMap);
+                    renamed++;
+                } catch (err) {
+                    failed++;
+                    console.error(`[${MODULE_NAME}] AI rename failed for "${chat.file_name}":`, err);
+                    if (index === 0) {
+                        // First chat failing usually means no working API connection
+                        window.toastr?.error('AI rename failed. Check that an API connection is configured and working.', MODULE_NAME);
+                        break;
+                    }
+                    window.toastr?.warning(`Could not rename: ${chat.file_name}`, MODULE_NAME);
+                }
+            }
+        } finally {
+            aiRenaming = false;
+            $button.removeClass('fa-spin');
+            setDrawerStatus('');
+            chatCache.delete(cacheKey(entity));
+            renderDrawerSection(true);
+        }
+        if (renamed > 0) {
+            window.toastr?.success(`Renamed ${renamed} chat${renamed === 1 ? '' : 's'} with AI${failed ? `, ${failed} failed` : ''}.`, MODULE_NAME);
         }
     }
 
@@ -682,7 +887,15 @@
         on('CHARACTER_EDITOR_OPENED', () => renderDrawerSection());
         on('CHAT_CHANGED', refreshStaleUI);
         on('CHAT_CREATED', refreshStaleUI);
-        on('CHAT_RENAMED', refreshStaleUI);
+        on('CHAT_RENAMED', (/** @type {{ oldFileName?: string, newFileName?: string }} */ data) => {
+            if (data?.oldFileName && data?.newFileName) {
+                renameEvents.set(
+                    String(data.oldFileName).replace(/\.jsonl$/, ''),
+                    String(data.newFileName).replace(/\.jsonl$/, ''),
+                );
+            }
+            refreshStaleUI();
+        });
         on('CHAT_DELETED', refreshStaleUI);
         on('CHARACTER_DELETED', (/** @type {{ character?: { avatar?: string } }} */ data) => {
             if (data?.character?.avatar) {

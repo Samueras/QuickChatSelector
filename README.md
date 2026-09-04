@@ -14,9 +14,17 @@ A SillyTavern extension that makes switching between a character's chats fast.
    groups). Clicking a chip selects that character and opens that chat. The line is
    horizontally scrollable when it overflows.
 3. **Chat picker on the favorite star** – Right-click (or long-press on touch) the
-   favorite star on a card to open a popup with that character's chats and jump
-   straight to one. The star is revealed on card hover; favorited characters always
+   favorite star on a card, or a favorite avatar in the HotSwaps strip on top of the
+   character management drawer, to open a chat picker menu and jump straight to one.
+   On cards the star sits in the card's top-right corner; favorited characters always
    show it.
+4. **AI chat renaming** – The *Chats* section in the character editor has a magic-wand
+   button. It sends the first 5 messages of each unmarked chat to the LLM (one call
+   per chat) and renames the chat to a short "Name - description" label, naming the
+   main female character when one is present. Renamed chats get a golden tag marker
+   (stored on the character card) and are skipped on subsequent runs; click a tag to
+   unmark a chat so it gets renamed again the next time. Requires a working API
+   connection.
 
 ## Settings
 
