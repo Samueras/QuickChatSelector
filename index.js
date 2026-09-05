@@ -713,8 +713,8 @@
     }
 
     // ------------------------------------------------------------------
-    // Feature C: chat picker from the favorite star (custom context menu,
-    // same pattern as the Quick Reply extension's ContextMenu)
+    // Feature C: chat picker on the HotSwaps favorite avatars (custom context
+    // menu, same pattern as the Quick Reply extension's ContextMenu)
     // ------------------------------------------------------------------
 
     let longPressTimer = null;
@@ -722,10 +722,6 @@
 
     function closeChatCtxMenu() {
         document.getElementById('qcs-ctx-blocker')?.remove();
-    }
-
-    function starFor(card) {
-        return card?.querySelector('.ch_fav_icon, .group_fav_icon');
     }
 
     async function showChatCtxMenu(entity, x, y) {
@@ -792,15 +788,12 @@
         menu.style.top = `${Math.max(8, Math.min(y, maxY))}px`;
     }
 
-    function bindStarPicker() {
-        // Card-list favorite star (target = the star itself)
-        const starSelector = '#rm_print_characters_block .ch_fav_icon, #rm_print_characters_block .group_fav_icon';
+    function bindHotswapPicker() {
         // Favorite avatars in the hotswap strip on top of the character management
-        // drawer (target = the avatar; core makes these .character_select/.group_select)
+        // drawer (core makes these .character_select/.group_select elements)
         const hotswapSelector = '#right-nav-panel .hotswap .avatar[data-type="character"], #right-nav-panel .hotswap .avatar[data-type="group"]';
-        const cardOf = (el) => el.closest('.character_select, .group_select');
 
-        $(document).on('contextmenu', `${starSelector}, ${hotswapSelector}`, function (e) {
+        $(document).on('contextmenu', hotswapSelector, function (e) {
             if (!settings.starPicker) {
                 return;
             }
@@ -811,35 +804,29 @@
                 return;
             }
             clearTimeout(longPressTimer);
-            const card = this.classList.contains('ch_fav_icon') || this.classList.contains('group_fav_icon')
-                ? cardOf(this)
-                : this;
-            showChatCtxMenu(entityFromCard(card), e.clientX, e.clientY);
+            showChatCtxMenu(entityFromCard(this), e.clientX, e.clientY);
         });
 
-        $(document).on('pointerdown', `${starSelector}, ${hotswapSelector}`, function (e) {
+        $(document).on('pointerdown', hotswapSelector, function (e) {
             if (!settings.starPicker || e.button !== 0) {
                 return;
             }
-            const target = this;
-            const card = target.classList.contains('ch_fav_icon') || target.classList.contains('group_fav_icon')
-                ? cardOf(target)
-                : target;
+            const avatar = this;
             const { clientX, clientY } = e;
             longPressFired = false;
             clearTimeout(longPressTimer);
             longPressTimer = setTimeout(() => {
                 longPressFired = true;
-                showChatCtxMenu(entityFromCard(card), clientX, clientY);
+                showChatCtxMenu(entityFromCard(avatar), clientX, clientY);
             }, LONG_PRESS_MS);
         });
 
-        $(document).on('pointerup pointermove pointercancel', `${starSelector}, ${hotswapSelector}`, () => {
+        $(document).on('pointerup pointermove pointercancel', hotswapSelector, () => {
             clearTimeout(longPressTimer);
         });
 
-        // Swallow the click that follows a long-press so the card doesn't open
-        $(document).on('click', `${starSelector}, ${hotswapSelector}`, function (e) {
+        // Swallow the click that follows a long-press so the avatar doesn't open
+        $(document).on('click', hotswapSelector, function (e) {
             if (longPressFired) {
                 longPressFired = false;
                 e.preventDefault();
@@ -943,7 +930,7 @@
             console.error(`[${MODULE_NAME}] Failed to load settings UI:`, err);
         }
 
-        bindStarPicker();
+        bindHotswapPicker();
         wireEvents();
         renderDrawerSection();
         console.debug(`[${MODULE_NAME}] loaded.`);

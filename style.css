@@ -150,44 +150,6 @@
     font-size: 0.85em;
 }
 
-/* --- Feature C: favorite star as chat-picker handle ---
-   Core hides the star with an inline display:none and offsets it with huge
-   negative margins. Re-position it as a stable, always-visible handle in the
-   card's top-right corner so right-click / long-press has a reliable target. */
-#rm_print_characters_block .character_select,
-#rm_print_characters_block .group_select {
-    position: relative;
-}
-
-#rm_print_characters_block .character_select .ch_fav_icon,
-#rm_print_characters_block .group_select .group_fav_icon {
-    display: block !important;
-    position: absolute;
-    top: 4px;
-    right: 6px;
-    margin: 0;
-    padding: 6px;
-    font-size: 13px;
-    line-height: 1;
-    color: var(--golden, #f5c026);
-    opacity: 0.3;
-    visibility: visible;
-    transition: opacity 0.15s ease-in-out;
-    cursor: context-menu;
-    z-index: 2;
-}
-
-#rm_print_characters_block .character_select:hover .ch_fav_icon,
-#rm_print_characters_block .group_select:hover .group_fav_icon {
-    opacity: 0.75;
-}
-
-#rm_print_characters_block .character_select.is_fav .ch_fav_icon,
-#rm_print_characters_block .group_select.is_fav .group_fav_icon {
-    opacity: 1;
-    text-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
-}
-
 /* --- Cursor-anchored chat picker menu (QR-style ctx menu) --- */
 #qcs-ctx-blocker {
     position: fixed;

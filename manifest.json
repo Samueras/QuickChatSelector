@@ -7,6 +7,6 @@
 	"css": "style.css",
 	"author": "Samueras",
 	"homePage": "https://github.com/Samueras/QuickChatSelector-Extension",
-	"description": "Adds quick chat switching to SillyTavern: a chat selector in the character editor, recent chats under each card, a right-click chat picker on the favorite star, and LLM-powered chat renaming.",
+	"description": "Adds quick chat switching to SillyTavern: a chat selector in the character editor, recent chats under each card, a right-click chat picker on the HotSwaps favorite avatars, and LLM-powered chat renaming.",
 	"version": "1.0.0"
 }
