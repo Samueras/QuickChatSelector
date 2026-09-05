@@ -51,7 +51,7 @@ Right-click a HotSwaps favorite avatar for a compact chat picker:
 Install via SillyTavern's Extension Manager using this repository URL:
 
 ```
-https://github.com/Samueras/QuickChatSelector-Extension/
+https://github.com/Samueras/QuickChatSelector/
 ```
 
 No core files are modified — everything is injected at runtime.
