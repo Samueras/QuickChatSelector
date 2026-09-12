@@ -525,6 +525,25 @@
      *  refusal text must never be used as a chat name. */
     const REFUSAL_RE = /^\s*(i can'?t|i can not|i cannot|i'm sorry|i am sorry|sorry|i apologize|unfortunately|as an ai|i'm unable|i am unable|unable)\b/i;
 
+    /** ST's stop button cancels raw generations with such an error. */
+    function isCancelError(err) {
+        return /cancel|abort/i.test(String(err?.message ?? err));
+    }
+
+    /**
+     * Shows ST's native stoppable loader toast (spinner + stop button) around
+     * long-running LLM work. Stopping triggers core's stopGeneration(), which
+     * aborts in-flight generateRaw calls.
+     */
+    function showWorkLoader(slug, message) {
+        return ctx.loader.show({
+            slug,
+            title: MODULE_NAME,
+            message,
+            blocking: false,
+        });
+    }
+
     /**
      * One LLM call -> proposed file name for a chat, or null when there is nothing to summarize.
      * Uses generateRaw so only the naming prompt is sent — no chat history, no world info.
@@ -548,7 +567,7 @@
                 }
                 name = sanitizeChatName(result);
             } catch (err) {
-                if (attempt > 0) {
+                if (attempt > 0 || isCancelError(err)) {
                     throw err;
                 }
                 console.debug(`[${MODULE_NAME}] Rename generation retry for "${fileName}":`, err);
@@ -592,8 +611,10 @@
 
         aiRenaming = true;
         const $button = $('#qcs_drawer_ai_rename').addClass('fa-spin');
+        const loaderHandle = showWorkLoader('qcs-rename', 'Renaming chats with AI… Click the stop button to cancel.');
         let renamed = 0;
         let failed = 0;
+        let cancelled = false;
         try {
             for (const [index, chat] of targets.entries()) {
                 setDrawerStatus(`Renaming chats with AI: ${index + 1}/${targets.length}…`);
@@ -618,6 +639,10 @@
                     await saveRenamedMap(entity.chid, renamedMap);
                     renamed++;
                 } catch (err) {
+                    if (isCancelError(err)) {
+                        cancelled = true;
+                        break;
+                    }
                     failed++;
                     console.error(`[${MODULE_NAME}] AI rename failed for "${chat.file_name}":`, err);
                     if (index === 0) {
@@ -632,10 +657,13 @@
             aiRenaming = false;
             $button.removeClass('fa-spin');
             setDrawerStatus('');
+            loaderHandle.hide();
             chatCache.delete(cacheKey(entity));
             renderDrawerSection(true);
         }
-        if (renamed > 0) {
+        if (cancelled) {
+            window.toastr?.info(`AI rename cancelled after ${renamed} chat${renamed === 1 ? '' : 's'}.`, MODULE_NAME);
+        } else if (renamed > 0) {
             window.toastr?.success(`Renamed ${renamed} chat${renamed === 1 ? '' : 's'} with AI${failed ? `, ${failed} failed` : ''}.`, MODULE_NAME);
         }
     }
@@ -721,6 +749,7 @@
         }
         describing = true;
         const $icon = $('#qcs_describe_button .extensionsMenuExtensionButton').addClass('fa-spin');
+        const loaderHandle = showWorkLoader('qcs-describe', 'Describing the current chat… Click the stop button to cancel.');
         try {
             const prompt = buildDescribePrompt(entity);
             let description = '';
@@ -735,7 +764,7 @@
                     }
                     description = cleanDescription(result);
                 } catch (err) {
-                    if (attempt > 0) {
+                    if (attempt > 0 || isCancelError(err)) {
                         throw err;
                     }
                     console.debug(`[${MODULE_NAME}] Describe retry for current chat:`, err);
@@ -759,11 +788,16 @@
                 { allowVerticalScrolling: true },
             );
         } catch (err) {
-            console.error(`[${MODULE_NAME}] Failed to describe current chat:`, err);
-            window.toastr?.error('Failed to describe the chat. Check that an API connection is configured and working.', MODULE_NAME);
+            if (isCancelError(err)) {
+                window.toastr?.info('Cancelled.', MODULE_NAME);
+            } else {
+                console.error(`[${MODULE_NAME}] Failed to describe current chat:`, err);
+                window.toastr?.error('Failed to describe the chat. Check that an API connection is configured and working.', MODULE_NAME);
+            }
         } finally {
             describing = false;
             $icon.removeClass('fa-spin');
+            loaderHandle.hide();
         }
     }
 

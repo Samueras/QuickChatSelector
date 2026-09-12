@@ -30,11 +30,11 @@ Right-click (or long-press on touch) a favorite avatar in the HotSwaps strip on 
 
 ### 🪄 AI Chat Renaming
 
-The *Chats* section has a magic-wand button that renames chats with the help of your LLM. For every unmarked chat it sends the first 10 messages (one call per chat, no chat history or world info is sent) and renames the chat to a compact `Name - Description` label: the first name of the main female character when one is present, plus up to 12 words describing what the chat is about. Names are front-loaded so the important parts survive truncation. Renamed chats get a golden tag marker stored on the character card and are skipped on subsequent runs; click a tag to unmark a chat so it gets renamed again next time.
+The *Chats* section has a magic-wand button that renames chats with the help of your LLM. For every unmarked chat it sends the first 10 messages (one call per chat, no chat history or world info is sent) and renames the chat to a compact `Name - Description` label: the first name of the main female character when one is present, plus up to 12 words describing what the chat is about. Names are front-loaded so the important parts survive truncation. Renamed chats get a golden tag marker stored on the character card and are skipped on subsequent runs; click a tag to unmark a chat so it gets renamed again next time. While the batch runs, SillyTavern's native stoppable loader toast appears — click its stop button to cancel at any time.
 
 ### 📝 Chat Descriptions
 
-Adds a *Describe Current Chat* button to the extensions menu (the wand). It sends the full current chat to the LLM and saves a summary of at most 300 words — what the chat is about, the main characters and their relationships, and where the story left off. The finished description pops up immediately, and is stored in the chat's own metadata and shown in the hover text of that chat everywhere in the Chats overview. Run it again any time to refresh the summary.
+Adds a *Describe Current Chat* button to the extensions menu (the wand). It sends the full current chat to the LLM and saves a summary of at most 300 words — what the chat is about, the main characters and their relationships, and where the story left off. A stoppable loader toast shows the progress and lets you cancel. The finished description pops up immediately, and is stored in the chat's own metadata and shown in the hover text of that chat everywhere in the Chats overview. Run it again any time to refresh the summary.
 
 ## Screenshots
 
