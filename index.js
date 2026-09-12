@@ -752,7 +752,12 @@
                 chatCache.delete(key);
             }
             renderDrawerSection(true);
-            window.toastr?.success('Chat description saved. Hover a chat in the Chats overview to see it.', MODULE_NAME);
+            // Show the result right away
+            await ctx.Popup.show.text(
+                `Chat Description — ${entity.name}`,
+                description,
+                { allowVerticalScrolling: true },
+            );
         } catch (err) {
             console.error(`[${MODULE_NAME}] Failed to describe current chat:`, err);
             window.toastr?.error('Failed to describe the chat. Check that an API connection is configured and working.', MODULE_NAME);

@@ -34,7 +34,7 @@ The *Chats* section has a magic-wand button that renames chats with the help of 
 
 ### 📝 Chat Descriptions
 
-Adds a *Describe Current Chat* button to the extensions menu (the wand). It sends the full current chat to the LLM and saves a summary of at most 300 words — what the chat is about, the main characters and their relationships, and where the story left off. The description is stored in the chat's own metadata and shown in the hover text of that chat everywhere in the Chats overview. Run it again any time to refresh the summary.
+Adds a *Describe Current Chat* button to the extensions menu (the wand). It sends the full current chat to the LLM and saves a summary of at most 300 words — what the chat is about, the main characters and their relationships, and where the story left off. The finished description pops up immediately, and is stored in the chat's own metadata and shown in the hover text of that chat everywhere in the Chats overview. Run it again any time to refresh the summary.
 
 ## Screenshots
 
