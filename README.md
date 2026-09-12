@@ -32,6 +32,10 @@ Right-click (or long-press on touch) a favorite avatar in the HotSwaps strip on 
 
 The *Chats* section has a magic-wand button that renames chats with the help of your LLM. For every unmarked chat it sends the first 10 messages (one call per chat, no chat history or world info is sent) and renames the chat to a compact `Name - Description` label: the first name of the main female character when one is present, plus up to 12 words describing what the chat is about. Names are front-loaded so the important parts survive truncation. Renamed chats get a golden tag marker stored on the character card and are skipped on subsequent runs; click a tag to unmark a chat so it gets renamed again next time.
 
+### 📝 Chat Descriptions
+
+Adds a *Describe Current Chat* button to the extensions menu (the wand). It sends the full current chat to the LLM and saves a summary of at most 300 words — what the chat is about, the main characters and their relationships, and where the story left off. The description is stored in the chat's own metadata and shown in the hover text of that chat everywhere in the Chats overview. Run it again any time to refresh the summary.
+
 ## Screenshots
 
 The chat section in the character editor, between tags and Creator's Notes — two chats renamed by AI (golden tags), one still pending:
@@ -61,6 +65,7 @@ No core files are modified — everything is injected at runtime.
 - **Switch chats:** click a row in the editor's *Chats* section, a chip under a card, or an entry in the HotSwaps chat picker.
 - **Rename with AI:** open a character, expand the *Chats* section and click the wand. Confirm the dialog and let it run — progress is shown in the section while the wand spins.
 - **Markers:** a golden tag next to a chat means it has been renamed by AI and will be skipped. Click the tag to unmark it and include the chat in the next run.
+- **Describe a chat:** open the chat, then use *Describe Current Chat* in the extensions menu. Hover the chat in the *Chats* overview to read the saved description.
 
 ## ⚙️ Settings
 

@@ -27,6 +27,8 @@
     const RENAME_MARKER_KEY = 'qcs_renamed_chats';
     const AI_RENAME_HEAD_MESSAGES = 10;
     const AI_RENAME_MAX_LENGTH = 90;
+    const DESCRIPTION_METADATA_KEY = 'qcs_description';
+    const DESCRIBE_PER_MESSAGE_CHARS = 1000;
 
     const DEFAULT_SETTINGS = {
         drawerSection: true,
@@ -170,23 +172,44 @@
     }
 
     async function fetchChats(entity) {
-        /** @type {{ query: string, avatar_url?: string, group_id?: string }} */
-        const body = { query: '' };
         if (entity.type === 'group') {
-            body.group_id = entity.groupId;
-        } else {
-            body.avatar_url = entity.avatar;
+            const response = await fetch('/api/chats/search', {
+                method: 'POST',
+                headers: ctx.getRequestHeaders(),
+                body: JSON.stringify({ query: '', group_id: entity.groupId }),
+            });
+            if (!response.ok) {
+                throw new Error(`Chat search failed: ${response.status}`);
+            }
+            const list = await response.json();
+            return Array.isArray(list) ? sortChats(list.map((chat) => ({ ...chat, description: '' }))) : [];
         }
-        const response = await fetch('/api/chats/search', {
+        // Characters: single request that also returns each chat's metadata
+        // (line 0 of the file), which carries our saved chat descriptions.
+        const response = await fetch('/api/characters/chats', {
             method: 'POST',
             headers: ctx.getRequestHeaders(),
-            body: JSON.stringify(body),
+            body: JSON.stringify({ avatar_url: entity.avatar, metadata: true }),
         });
         if (!response.ok) {
-            throw new Error(`Chat search failed: ${response.status}`);
+            throw new Error(`Chat list failed: ${response.status}`);
         }
         const list = await response.json();
-        return Array.isArray(list) ? sortChats(list) : [];
+        if (!Array.isArray(list)) {
+            return [];
+        }
+        return sortChats(list
+            .filter((chat) => chat && chat.file_id)
+            .map((chat) => ({
+                file_name: chat.file_id,
+                file_size: chat.file_size,
+                message_count: chat.chat_items,
+                last_mes: chat.last_mes,
+                preview_message: typeof chat.mes === 'string' ? chat.mes.slice(0, 400) : '',
+                description: typeof chat.chat_metadata?.[DESCRIPTION_METADATA_KEY] === 'string'
+                    ? chat.chat_metadata[DESCRIPTION_METADATA_KEY]
+                    : '',
+            })));
     }
 
     /** Small semaphore so a list full of cards doesn't hammer the server. */
@@ -255,12 +278,11 @@
     }
 
     function chatTooltip(chat, entity) {
-        const lines = [
-            chatTitle(chat, entity),
-            formatDate(chat.last_mes),
-            `${chat.message_count ?? 0} messages`,
-            chat.file_size ?? '',
-        ];
+        const lines = [chatTitle(chat, entity)];
+        if (chat.description) {
+            lines.push('', chat.description);
+        }
+        lines.push('', `${formatDate(chat.last_mes)} · ${chat.message_count ?? 0} messages`, chat.file_size ?? '');
         if (chat.preview_message) {
             lines.push('', chat.preview_message);
         }
@@ -619,6 +641,128 @@
     }
 
     // ------------------------------------------------------------------
+    // Feature E: LLM description of the current chat (extensions menu)
+    // ------------------------------------------------------------------
+
+    function injectExtensionsMenuButton() {
+        const menu = document.getElementById('extensionsMenu');
+        if (!(menu instanceof HTMLElement) || document.getElementById('qcs_describe_button')) {
+            return;
+        }
+        const button = document.createElement('div');
+        button.id = 'qcs_describe_button';
+        button.classList.add('list-group-item', 'flex-container', 'flexGap5');
+        const icon = document.createElement('div');
+        icon.classList.add('fa-solid', 'fa-file-pen', 'extensionsMenuExtensionButton');
+        const label = document.createElement('span');
+        label.textContent = 'Describe Current Chat';
+        button.append(icon, label);
+        button.title = 'Sends the current chat to the LLM for a short description, shown when hovering chats in the Chats overview.';
+        button.addEventListener('click', () => describeCurrentChat());
+        menu.appendChild(button);
+    }
+
+    function getCurrentChatEntity() {
+        const c = getCtx();
+        if (c.groupId) {
+            const group = ctx.groups?.find((g) => g.id === c.groupId);
+            return group ? { type: 'group', groupId: c.groupId, name: group.name } : null;
+        }
+        const chid = Number(c.characterId);
+        const character = Number.isFinite(chid) ? c.characters?.[chid] : null;
+        return character ? { type: 'character', chid, avatar: character.avatar, name: character.name } : null;
+    }
+
+    function buildDescribePrompt(entity) {
+        const transcript = (ctx.chat ?? [])
+            .filter((m) => m && !m.is_system)
+            .map((m) => {
+                const who = m.name || (m.is_user ? 'User' : entity.name);
+                const text = String(m.mes ?? '').replace(/\s+/g, ' ').trim().slice(0, DESCRIBE_PER_MESSAGE_CHARS);
+                return `${who}: ${text}`;
+            })
+            .join('\n');
+        return [
+            'You write summaries of roleplay chats. Below is the full transcript of one chat. Write a summary of AT MOST 300 words that covers:',
+            '1. What the chat is about: the premise, setting and ongoing storyline.',
+            '2. The main characters: their names, who they are, and how they relate to each other.',
+            '3. Where the chat left off: the most recent events and how the story currently stands.',
+            'Write flowing prose without markdown, lists or headers. Do not address the reader.',
+            '',
+            'Chat transcript:',
+            transcript,
+        ].join('\n');
+    }
+
+    function cleanDescription(raw) {
+        return String(raw ?? '')
+            .replace(/\s+/g, ' ')
+            .replace(/^["'\s]+|["'\s]+$/g, '')
+            .trim()
+            .slice(0, 2500)
+            .trim();
+    }
+
+    let describing = false;
+
+    async function describeCurrentChat() {
+        if (describing) {
+            return;
+        }
+        const entity = getCurrentChatEntity();
+        if (!entity) {
+            window.toastr?.info('No chat is currently open.', MODULE_NAME);
+            return;
+        }
+        const messageCount = (ctx.chat ?? []).filter((m) => m && !m.is_system).length;
+        if (messageCount === 0) {
+            window.toastr?.info('The current chat is empty.', MODULE_NAME);
+            return;
+        }
+        describing = true;
+        const $icon = $('#qcs_describe_button .extensionsMenuExtensionButton').addClass('fa-spin');
+        try {
+            const prompt = buildDescribePrompt(entity);
+            let description = '';
+            for (let attempt = 0; attempt < 2 && !description; attempt++) {
+                try {
+                    const result = await ctx.generateRaw({
+                        prompt,
+                        systemPrompt: 'You summarize roleplay chat transcripts. Follow the instructions exactly and reply with the summary only.',
+                    });
+                    if (REFUSAL_RE.test(result)) {
+                        throw new Error('LLM refused to describe this chat');
+                    }
+                    description = cleanDescription(result);
+                } catch (err) {
+                    if (attempt > 0) {
+                        throw err;
+                    }
+                    console.debug(`[${MODULE_NAME}] Describe retry for current chat:`, err);
+                }
+            }
+            if (!description) {
+                throw new Error('LLM returned an empty description');
+            }
+            const c = getCtx();
+            c.chatMetadata[DESCRIPTION_METADATA_KEY] = description;
+            await c.saveMetadata();
+            const key = currentOwnerKey();
+            if (key) {
+                chatCache.delete(key);
+            }
+            renderDrawerSection(true);
+            window.toastr?.success('Chat description saved. Hover a chat in the Chats overview to see it.', MODULE_NAME);
+        } catch (err) {
+            console.error(`[${MODULE_NAME}] Failed to describe current chat:`, err);
+            window.toastr?.error('Failed to describe the chat. Check that an API connection is configured and working.', MODULE_NAME);
+        } finally {
+            describing = false;
+            $icon.removeClass('fa-spin');
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Feature B: single-line chat selector under each card
     // ------------------------------------------------------------------
 
@@ -921,6 +1065,7 @@
         loadSettings();
 
         injectDrawerSection();
+        injectExtensionsMenuButton();
 
         try {
             const settingsHtml = await $.get(`${EXTENSION_FOLDER}/settings.html`);
