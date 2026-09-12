@@ -29,6 +29,14 @@
     const AI_RENAME_MAX_LENGTH = 90;
     const DESCRIPTION_METADATA_KEY = 'qcs_description';
     const DESCRIBE_PER_MESSAGE_CHARS = 1000;
+    /**
+     * Generous token ceiling for our LLM calls. The response length is steered
+     * by the word-count instruction in the prompt, not by this limit — it only
+     * ensures the user's (possibly small) profile response-length setting can't
+     * truncate a reasoning model mid-thought. ST restores the original setting
+     * right after each call.
+     */
+    const LLM_RESPONSE_TOKENS = 4096;
 
     const DEFAULT_SETTINGS = {
         drawerSection: true,
@@ -561,6 +569,7 @@
                 const result = await ctx.generateRaw({
                     prompt,
                     systemPrompt: 'You name chat log files. Follow the rules exactly and reply with only the file name.',
+                    responseLength: LLM_RESPONSE_TOKENS,
                 });
                 if (REFUSAL_RE.test(result)) {
                     throw new Error('LLM refused to name this chat');
@@ -758,6 +767,7 @@
                     const result = await ctx.generateRaw({
                         prompt,
                         systemPrompt: 'You summarize roleplay chat transcripts. Follow the instructions exactly and reply with the summary only.',
+                        responseLength: LLM_RESPONSE_TOKENS,
                     });
                     if (REFUSAL_RE.test(result)) {
                         throw new Error('LLM refused to describe this chat');
